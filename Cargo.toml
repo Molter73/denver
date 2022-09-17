@@ -1,0 +1,13 @@
+[package]
+name = "denver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shiplift = "0.7"
+tokio = { version = "1", features = ["full"] }
+serde = "1.0.144"
+serde_yaml = "0.9.13"
+serde_json = "1.0.85"
+clap = { version = "3.2.22", features = ["derive"] }
+futures = "0.3.24"
