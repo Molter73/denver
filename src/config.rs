@@ -6,7 +6,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Eq, PartialEq, Debug)]
 #[serde(rename = "build")]
 pub struct BuildConfig {
-    pub dockerfile: String,
+    pub dockerfile: Option<String>,
     pub context: String,
 }
 

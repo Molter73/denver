@@ -25,7 +25,12 @@ impl DockerIface {
         let build_options = &container.build;
 
         let options = BuildOptions::builder(&build_options.context)
-            .dockerfile(&build_options.dockerfile)
+            .dockerfile(
+                build_options
+                    .dockerfile
+                    .as_ref()
+                    .unwrap_or(&"Dockerfile".to_string()),
+            )
             .tag(&container.tag)
             .nocache(args.no_cache)
             .build();
@@ -93,7 +98,9 @@ pub async fn run(args: &Run) {
     let mut docker = DockerIface::new(&config);
     let container = &config.containers[&args.common.container];
 
-    docker.build_image(&args.common, container).await;
+    if !args.no_rebuild {
+        docker.build_image(&args.common, container).await;
+    }
     docker.create_container(container).await;
     docker.run_container().await;
 }
