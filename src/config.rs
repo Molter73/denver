@@ -13,8 +13,9 @@ pub struct BuildConfig {
 #[derive(Deserialize, Eq, PartialEq, Debug)]
 #[serde(rename = "run")]
 pub struct RunConfig {
-    pub args: Vec<String>,
+    pub args: Option<Vec<String>>,
     pub workspace: String,
+    pub volumes: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Eq, PartialEq, Debug)]
@@ -63,6 +64,9 @@ mod tests {
         - i
         - rm"#;
         let workspace = "/some/path/";
+        let volumes = r#"
+        - /some/other/path:/path
+        - /dev:/dev:ro"#;
         let tag = "quay.io/org/some:tag";
         let config = format!(
             r#"
@@ -75,9 +79,10 @@ containers:
     run:
         args: {}
         workspace: {}
+        volumes: {}
     tag: {}
         "#,
-            socket, name, dockerfile, context, args, workspace, tag
+            socket, name, dockerfile, context, args, workspace, volumes, tag
         );
 
         let config = Config::new(&config);
@@ -93,8 +98,16 @@ containers:
         assert_eq!(context, build_config.context);
 
         let run_config = &container.run;
-        assert!(run_config.args.contains(&"i".to_string()));
-        assert!(run_config.args.contains(&"rm".to_string()));
+        let run_args = run_config.args.as_ref().unwrap();
+        for arg in run_args {
+            assert!(args.contains(arg));
+        }
         assert_eq!(workspace, run_config.workspace);
+
+        let run_volumes = run_config.volumes.as_ref().unwrap();
+        assert_eq!(2, run_volumes.len());
+        for volume in run_volumes {
+            assert!(volumes.contains(volume));
+        }
     }
 }

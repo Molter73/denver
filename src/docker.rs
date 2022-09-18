@@ -54,18 +54,23 @@ impl DockerIface {
     }
 
     fn handle_run_options(options: &mut ContainerOptionsBuilder, run_options: &RunConfig) {
-        let args = &run_options.args;
-
-        for arg in args {
-            match &arg[..] {
-                "i" | "interactive" => options.attach_stdin(true),
-                "rm" => options.auto_remove(true),
-                _ => options,
-            };
+        if let Some(args) = &run_options.args {
+            for arg in args {
+                match &arg[..] {
+                    "i" | "interactive" => options.attach_stdin(true),
+                    "rm" => options.auto_remove(true),
+                    _ => options,
+                };
+            }
         }
 
         let workspace_volume = format!("{}:{}", run_options.workspace, run_options.workspace);
-        let volumes: Vec<&str> = vec![&workspace_volume[..]];
+        let mut volumes: Vec<&str> = vec![&workspace_volume[..]];
+
+        if let Some(run_volumes) = &run_options.volumes {
+            let mut run_volumes: Vec<&str> = run_volumes.iter().map(|s| &s[..]).collect();
+            volumes.append(&mut run_volumes);
+        }
 
         options.volumes(volumes);
         options.working_dir(&run_options.workspace);
