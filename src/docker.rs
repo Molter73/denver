@@ -2,7 +2,8 @@ use futures::StreamExt;
 use serde_json::Value;
 use shiplift::{builder::ContainerOptionsBuilder, BuildOptions, ContainerOptions, Docker};
 
-use crate::config::{Config, ContainerConfig, RunConfig};
+use crate::cli::{Common, Run};
+use crate::config::{read_config, Config, ContainerConfig, RunConfig};
 
 struct DockerIface {
     docker: Docker,
@@ -19,13 +20,14 @@ impl DockerIface {
         }
     }
 
-    async fn build_image(&self, container: &ContainerConfig) {
+    async fn build_image(&self, args: &Common, container: &ContainerConfig) {
         let docker = &self.docker;
         let build_options = &container.build;
 
         let options = BuildOptions::builder(&build_options.context)
             .dockerfile(&build_options.dockerfile)
             .tag(&container.tag)
+            .nocache(args.no_cache)
             .build();
 
         let mut stream = docker.images().build(&options);
@@ -86,11 +88,24 @@ impl DockerIface {
     }
 }
 
-pub async fn run(config: &Config) {
-    let mut docker = DockerIface::new(config);
-    let container = &config.containers["falco-fedora"];
+pub async fn run(args: &Run) {
+    let config = read_config(&args.common.config);
+    let mut docker = DockerIface::new(&config);
+    let container = &config.containers[&args.common.container];
 
-    docker.build_image(container).await;
+    docker.build_image(&args.common, container).await;
     docker.create_container(container).await;
     docker.run_container().await;
+}
+
+pub async fn build(args: &Common) {
+    let config = read_config(&args.config);
+    let docker = DockerIface::new(&config);
+    let container = &config.containers.get(&args.container);
+
+    if container.is_none() {
+        eprintln!("Error: {} not found", args.container);
+        return;
+    }
+    docker.build_image(args, container.unwrap()).await;
 }

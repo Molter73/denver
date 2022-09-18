@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 
 use serde::Deserialize;
 
@@ -32,6 +33,19 @@ impl Config {
     pub fn new(config: &str) -> Self {
         serde_yaml::from_str(config).unwrap()
     }
+}
+
+pub fn read_config(config: &str) -> Config {
+    let config = if let Some(relative_path) = config.strip_prefix('~') {
+        format!("{}{}", env::var("HOME").unwrap(), relative_path)
+    } else {
+        config.to_owned()
+    };
+
+    let config = std::fs::read_to_string(&config)
+        .unwrap_or_else(|_| panic!("Failed to read configuration file: {}", config));
+
+    Config::new(config.as_str())
 }
 
 #[cfg(test)]

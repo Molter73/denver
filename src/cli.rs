@@ -15,7 +15,7 @@ pub enum Commands {
 }
 
 #[derive(Args)]
-pub struct Build {
+pub struct Common {
     // Container to be run/build
     #[clap(value_parser)]
     pub container: String,
@@ -28,24 +28,24 @@ pub struct Build {
         default_value = "~/.config/denver/config.yml"
     )]
     pub config: String,
+
+    // Build image with no cache
+    #[clap(short, long, action)]
+    pub no_cache: bool,
+}
+
+#[derive(Args)]
+pub struct Build {
+    #[clap(flatten)]
+    pub common: Common,
 }
 
 #[derive(Args)]
 pub struct Run {
-    // Container to be run/build
-    #[clap(value_parser)]
-    pub container: String,
-
-    // Config file to use
-    #[clap(
-        short,
-        long,
-        value_parser,
-        default_value = "~/.config/denver/config.yml"
-    )]
-    pub config: String,
+    #[clap(flatten)]
+    pub common: Common,
 
     // If set, doesn't rebuild the image
-    #[clap(short, long, action)]
-    pub rebuild: bool,
+    #[clap(long, action)]
+    pub no_rebuild: bool,
 }
