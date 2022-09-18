@@ -53,7 +53,7 @@ impl DockerIface {
         }
     }
 
-    fn handle_run_options(&self, options: &mut ContainerOptionsBuilder, run_options: &RunConfig) {
+    fn handle_run_options(options: &mut ContainerOptionsBuilder, run_options: &RunConfig) {
         let args = &run_options.args;
 
         for arg in args {
@@ -63,14 +63,21 @@ impl DockerIface {
                 _ => options,
             };
         }
+
+        let workspace_volume = format!("{}:{}", run_options.workspace, run_options.workspace);
+        let volumes: Vec<&str> = vec![&workspace_volume[..]];
+
+        options.volumes(volumes);
+        options.working_dir(&run_options.workspace);
     }
 
     async fn create_container(&mut self, container: &ContainerConfig) {
         let docker = &self.docker;
 
         let options = &mut ContainerOptions::builder(container.tag.as_str());
+        let run_options = &container.run;
 
-        self.handle_run_options(options, &container.run);
+        Self::handle_run_options(options, run_options);
 
         options.name("falco-fedora");
         let options = options.build();

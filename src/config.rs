@@ -14,6 +14,7 @@ pub struct BuildConfig {
 #[serde(rename = "run")]
 pub struct RunConfig {
     pub args: Vec<String>,
+    pub workspace: String,
 }
 
 #[derive(Deserialize, Eq, PartialEq, Debug)]
@@ -61,6 +62,7 @@ mod tests {
         let args = r#"
         - i
         - rm"#;
+        let workspace = "/some/path/";
         let tag = "quay.io/org/some:tag";
         let config = format!(
             r#"
@@ -72,9 +74,10 @@ containers:
         context: {}
     run:
         args: {}
+        workspace: {}
     tag: {}
         "#,
-            socket, name, dockerfile, context, args, tag
+            socket, name, dockerfile, context, args, workspace, tag
         );
 
         let config = Config::new(&config);
@@ -86,11 +89,12 @@ containers:
         assert_eq!(tag, container.tag);
 
         let build_config = &container.build;
-        assert_eq!(dockerfile, build_config.dockerfile);
+        assert_eq!(dockerfile, build_config.dockerfile.as_ref().unwrap());
         assert_eq!(context, build_config.context);
 
         let run_config = &container.run;
         assert!(run_config.args.contains(&"i".to_string()));
         assert!(run_config.args.contains(&"rm".to_string()));
+        assert_eq!(workspace, run_config.workspace);
     }
 }
