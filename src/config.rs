@@ -1,18 +1,31 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
-pub struct Container {
+#[derive(Deserialize, Eq, PartialEq, Debug)]
+#[serde(rename = "build")]
+pub struct BuildConfig {
     pub dockerfile: String,
     pub context: String,
+}
+
+#[derive(Deserialize, Eq, PartialEq, Debug)]
+#[serde(rename = "run")]
+pub struct RunConfig {
+    pub args: Vec<String>,
+}
+
+#[derive(Deserialize, Eq, PartialEq, Debug)]
+pub struct ContainerConfig {
+    pub build: BuildConfig,
+    pub run: RunConfig,
     pub tag: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
+#[derive(Deserialize, Eq, PartialEq, Debug)]
 pub struct Config {
     pub socket: String,
-    pub containers: HashMap<String, Container>,
+    pub containers: HashMap<String, ContainerConfig>,
 }
 
 impl Config {
@@ -31,27 +44,39 @@ mod tests {
         let name = "test-container";
         let dockerfile = "Dockerfile";
         let context = "ctx/";
+        let args = r#"
+        - i
+        - rm"#;
         let tag = "quay.io/org/some:tag";
         let config = format!(
             r#"
 socket: {}
 containers:
   {}:
-    dockerfile: {}
-    context: {}
+    build:
+        dockerfile: {}
+        context: {}
+    run:
+        args: {}
     tag: {}
         "#,
-            socket, name, dockerfile, context, tag
+            socket, name, dockerfile, context, args, tag
         );
 
-        let config: Config = serde_yaml::from_str(config.as_str()).unwrap();
+        let config = Config::new(&config);
 
         assert_eq!(config.socket, socket);
         assert_eq!(config.containers.len(), 1);
 
         let container = &config.containers[name];
-        assert_eq!(dockerfile, container.dockerfile);
-        assert_eq!(context, container.context);
         assert_eq!(tag, container.tag);
+
+        let build_config = &container.build;
+        assert_eq!(dockerfile, build_config.dockerfile);
+        assert_eq!(context, build_config.context);
+
+        let run_config = &container.run;
+        assert!(run_config.args.contains(&"i".to_string()));
+        assert!(run_config.args.contains(&"rm".to_string()));
     }
 }

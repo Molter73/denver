@@ -35,5 +35,5 @@ async fn main() {
 
     let config = Config::new(config.as_str());
 
-    docker::run(config).await
+    docker::run(&config).await
 }
