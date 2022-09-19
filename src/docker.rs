@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use futures::StreamExt;
 use serde_json::Value;
 use shiplift::{BuildOptions, ContainerOptions, Docker};
@@ -54,24 +56,28 @@ impl DockerIface {
     }
 
     fn create_run_options(name: &str, container: &ContainerConfig) -> ContainerOptions {
+        static EMPTY_VEC: Vec<String> = vec![];
         let run_options = &container.run;
         let workspace_volume = format!("{}:{}", run_options.workspace, run_options.workspace);
         let mut volumes: Vec<&str> = vec![&workspace_volume[..]];
+        let configured_volumes = run_options.volumes.as_ref().unwrap_or(&EMPTY_VEC);
+
+        volumes.append(
+            &mut configured_volumes
+                .iter()
+                .map(|s| s.deref())
+                .collect::<Vec<&str>>(),
+        );
+
         let args = run_options.args.as_ref();
-
-        if let Some(run_volumes) = &run_options.volumes {
-            let mut run_volumes: Vec<&str> = run_volumes.iter().map(|s| &s[..]).collect();
-            volumes.append(&mut run_volumes);
-        }
-
         ContainerOptions::builder(&container.tag)
             .name(name)
             .attach_stdin(
-                args.unwrap_or(&vec![])
+                args.unwrap_or(&EMPTY_VEC)
                     .iter()
                     .any(|e| e == "i" || e == "interactive"),
             )
-            .auto_remove(args.unwrap_or(&vec![]).iter().any(|e| e == "rm"))
+            .auto_remove(args.unwrap_or(&EMPTY_VEC).iter().any(|e| e == "rm"))
             .volumes(volumes)
             .working_dir(&run_options.workspace)
             .build()
