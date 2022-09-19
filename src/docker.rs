@@ -110,7 +110,14 @@ pub async fn run(args: &Run) {
     let config = read_config(&args.common.config);
     let mut docker = DockerIface::new(&config);
     let name = &args.common.container;
-    let container = &config.containers[name];
+    let container = &config.containers.get(&args.common.container);
+
+    if container.is_none() {
+        eprintln!("Error: {} not found", args.common.container);
+        return;
+    }
+
+    let container = container.unwrap();
 
     if !args.no_rebuild {
         docker.build_image(&args.common, container).await;
@@ -128,5 +135,6 @@ pub async fn build(args: &Common) {
         eprintln!("Error: {} not found", args.container);
         return;
     }
+
     docker.build_image(args, container.unwrap()).await;
 }
