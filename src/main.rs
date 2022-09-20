@@ -2,6 +2,8 @@ use clap::Parser;
 mod cli;
 use cli::{Cli, Commands};
 mod config;
+mod denver;
+use denver::Denver;
 mod docker;
 
 #[tokio::main]
@@ -10,10 +12,10 @@ async fn main() {
 
     match cli.command {
         Commands::Run(args) => {
-            docker::run(&args).await;
+            Denver::run(&args).await;
         }
         Commands::Build(args) => {
-            docker::build(&args.common).await;
+            Denver::build(&args.common).await;
         }
     }
 }

@@ -4,25 +4,25 @@ use futures::StreamExt;
 use serde_json::Value;
 use shiplift::{BuildOptions, ContainerOptions, Docker};
 
-use crate::cli::{Common, Run};
-use crate::config::{read_config, Config, ContainerConfig};
+use crate::cli::Common;
+use crate::config::{Config, ContainerConfig};
 
-struct DockerIface {
+pub struct DockerClient {
     docker: Docker,
     id: String,
 }
 
-impl DockerIface {
-    fn new(config: &Config) -> Self {
+impl DockerClient {
+    pub fn new(config: &Config) -> Self {
         let docker = Docker::unix(&config.socket);
 
-        DockerIface {
+        DockerClient {
             docker,
             id: String::from(""),
         }
     }
 
-    async fn build_image(&self, args: &Common, container: &ContainerConfig) {
+    pub async fn build_image(&self, args: &Common, container: &ContainerConfig) {
         let docker = &self.docker;
         let build_options = &container.build;
 
@@ -83,7 +83,7 @@ impl DockerIface {
             .build()
     }
 
-    async fn create_container(&mut self, name: &str, container: &ContainerConfig) {
+    pub async fn create_container(&mut self, name: &str, container: &ContainerConfig) {
         let docker = &self.docker;
         let options = Self::create_run_options(name, container);
 
@@ -96,7 +96,7 @@ impl DockerIface {
         }
     }
 
-    async fn run_container(&self) {
+    pub async fn run_container(&self) {
         let docker = &self.docker;
 
         match docker.containers().get(&self.id).start().await {
@@ -104,37 +104,4 @@ impl DockerIface {
             Err(e) => eprintln!("Error: {}", e),
         }
     }
-}
-
-pub async fn run(args: &Run) {
-    let config = read_config(&args.common.config);
-    let mut docker = DockerIface::new(&config);
-    let name = &args.common.container;
-    let container = &config.containers.get(&args.common.container);
-
-    if container.is_none() {
-        eprintln!("Error: {} not found", args.common.container);
-        return;
-    }
-
-    let container = container.unwrap();
-
-    if !args.no_rebuild {
-        docker.build_image(&args.common, container).await;
-    }
-    docker.create_container(name, container).await;
-    docker.run_container().await;
-}
-
-pub async fn build(args: &Common) {
-    let config = read_config(&args.config);
-    let docker = DockerIface::new(&config);
-    let container = &config.containers.get(&args.container);
-
-    if container.is_none() {
-        eprintln!("Error: {} not found", args.container);
-        return;
-    }
-
-    docker.build_image(args, container.unwrap()).await;
 }
