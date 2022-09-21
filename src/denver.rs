@@ -1,5 +1,5 @@
 use crate::cli::{Cli, Commands, Common, Run};
-use crate::config::read_config;
+use crate::config::{read_config, Config, ContainerConfig};
 use crate::docker::DockerClient;
 
 pub enum DenverError {
@@ -9,20 +9,26 @@ pub enum DenverError {
 pub struct Denver;
 
 impl Denver {
-    pub async fn run(args: &Run) -> Result<(), DenverError> {
+    fn get_container_config<'a>(
+        config: &'a Config,
+        container_name: &String,
+    ) -> Result<&'a ContainerConfig, DenverError> {
+        let container = &config.containers.get(container_name);
+
+        match container {
+            Some(container) => Ok(container),
+            None => Err(DenverError::UnknownContainer(format!(
+                "{} not found",
+                container_name
+            ))),
+        }
+    }
+
+    async fn run(args: &Run) -> Result<(), DenverError> {
         let config = read_config(&args.common.config);
         let mut docker = DockerClient::new(&config);
         let name = &args.common.container;
-        let container = &config.containers.get(&args.common.container);
-
-        if container.is_none() {
-            return Err(DenverError::UnknownContainer(format!(
-                "{} not found",
-                args.common.container
-            )));
-        }
-
-        let container = container.unwrap();
+        let container = Denver::get_container_config(&config, name)?;
 
         if !args.no_rebuild {
             docker.build_image(&args.common, container).await;
@@ -33,19 +39,13 @@ impl Denver {
         Ok(())
     }
 
-    pub async fn build(args: &Common) -> Result<(), DenverError> {
+    async fn build(args: &Common) -> Result<(), DenverError> {
         let config = read_config(&args.config);
         let docker = DockerClient::new(&config);
-        let container = &config.containers.get(&args.container);
+        let name = &args.container;
+        let container = Denver::get_container_config(&config, name)?;
 
-        if container.is_none() {
-            return Err(DenverError::UnknownContainer(format!(
-                "Error: {} not found",
-                args.container
-            )));
-        }
-
-        docker.build_image(args, container.unwrap()).await;
+        docker.build_image(args, container).await;
 
         Ok(())
     }
