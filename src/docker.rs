@@ -1,11 +1,20 @@
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use futures::StreamExt;
 use serde_json::Value;
-use shiplift::{BuildOptions, ContainerOptions, Docker};
+use shiplift::{
+    rep::Container, BuildOptions, ContainerFilter, ContainerListOptions, ContainerOptions, Docker,
+};
 
 use crate::cli::Common;
 use crate::config::{Config, ContainerConfig};
+
+const DENVER_LABEL: (&str, &str) = ("manager", "denver");
+
+pub enum DockerError {
+    ListError(String),
+}
 
 pub struct DockerClient {
     docker: Docker,
@@ -80,6 +89,7 @@ impl DockerClient {
             .auto_remove(args.unwrap_or(&EMPTY_VEC).iter().any(|e| e == "rm"))
             .volumes(volumes)
             .working_dir(&run_options.workspace)
+            .labels(&HashMap::from([DENVER_LABEL]))
             .build()
     }
 
@@ -102,6 +112,21 @@ impl DockerClient {
         match docker.containers().get(&self.id).start().await {
             Ok(info) => println!("{:?}", info),
             Err(e) => eprintln!("Error: {}", e),
+        }
+    }
+
+    pub async fn list_containers(&self) -> Result<Vec<Container>, DockerError> {
+        let (label_key, label_value) = DENVER_LABEL;
+        let options = ContainerListOptions::builder()
+            .filter(vec![ContainerFilter::Label(
+                label_key.to_string(),
+                label_value.to_string(),
+            )])
+            .build();
+
+        match self.docker.containers().list(&options).await {
+            Ok(info) => Ok(info),
+            Err(e) => Err(DockerError::ListError(format!("{:?}", e))),
         }
     }
 }
