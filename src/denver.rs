@@ -31,10 +31,10 @@ impl Denver {
         let container = Denver::get_container_config(&config, name)?;
 
         if !args.no_rebuild {
-            docker.build_image(&args.common, container).await;
+            docker.build_image(&args.common, container).await?;
         }
-        docker.create_container(name, container).await;
-        docker.run_container().await;
+        docker.create_container(name, container).await?;
+        docker.run_container().await?;
 
         Ok(())
     }
@@ -45,7 +45,7 @@ impl Denver {
         let name = &args.container;
         let container = Denver::get_container_config(&config, name)?;
 
-        docker.build_image(args, container).await;
+        docker.build_image(args, container).await?;
 
         Ok(())
     }
@@ -94,6 +94,8 @@ impl Denver {
 
 pub enum DenverError {
     UnknownContainer(String),
+    BuildError(String),
+    RunError(String),
     StatusError(String),
     InvalidRegex(String),
 }
@@ -103,7 +105,9 @@ impl Display for DenverError {
         match self {
             DenverError::UnknownContainer(e)
             | DenverError::StatusError(e)
-            | DenverError::InvalidRegex(e) => {
+            | DenverError::InvalidRegex(e)
+            | DenverError::RunError(e)
+            | DenverError::BuildError(e) => {
                 write!(f, "{}", e)
             }
         }
@@ -113,7 +117,9 @@ impl Display for DenverError {
 impl From<DockerError> for DenverError {
     fn from(e: DockerError) -> Self {
         match e {
-            DockerError::ListError(e) => DenverError::StatusError(e),
+            DockerError::List(e) => DenverError::StatusError(e),
+            DockerError::Build(e) => DenverError::BuildError(e),
+            DockerError::Run(e) => DenverError::RunError(e),
         }
     }
 }

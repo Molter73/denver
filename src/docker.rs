@@ -13,7 +13,9 @@ use crate::config::{Config, ContainerConfig};
 const DENVER_LABEL: (&str, &str) = ("manager", "denver");
 
 pub enum DockerError {
-    ListError(String),
+    Build(String),
+    Run(String),
+    List(String),
 }
 
 pub struct DockerClient {
@@ -31,7 +33,11 @@ impl DockerClient {
         }
     }
 
-    pub async fn build_image(&self, args: &Common, container: &ContainerConfig) {
+    pub async fn build_image(
+        &self,
+        args: &Common,
+        container: &ContainerConfig,
+    ) -> Result<(), DockerError> {
         let docker = &self.docker;
         let build_options = &container.build;
 
@@ -52,16 +58,20 @@ impl DockerClient {
                 Ok(output) => {
                     let stream = &output["stream"];
                     match stream {
-                        Value::String(log) => {
-                            print!("{}", log);
-                        }
+                        Value::String(log) => print!("{}", log),
                         Value::Null => {}
                         _ => println!("{:?}", stream),
                     }
                 }
-                Err(e) => eprintln!("Error: {}", e),
+                Err(e) => match e {
+                    // Don't really care about SerdeJsonErrors for now
+                    shiplift::Error::SerdeJsonError(_) => {}
+                    e => return Err(DockerError::Build(format!("{:?}", e))),
+                },
             }
         }
+
+        Ok(())
     }
 
     fn create_run_options(name: &str, container: &ContainerConfig) -> ContainerOptions {
@@ -93,25 +103,29 @@ impl DockerClient {
             .build()
     }
 
-    pub async fn create_container(&mut self, name: &str, container: &ContainerConfig) {
+    pub async fn create_container(
+        &mut self,
+        name: &str,
+        container: &ContainerConfig,
+    ) -> Result<&str, DockerError> {
         let docker = &self.docker;
         let options = Self::create_run_options(name, container);
 
         match docker.containers().create(&options).await {
             Ok(info) => {
-                println!("{}", info.id);
                 self.id = info.id;
+                Ok(&self.id)
             }
-            Err(e) => eprintln!("Error: {}", e),
+            Err(e) => Err(DockerError::Run(e.to_string())),
         }
     }
 
-    pub async fn run_container(&self) {
+    pub async fn run_container(&self) -> Result<(), DockerError> {
         let docker = &self.docker;
 
         match docker.containers().get(&self.id).start().await {
-            Ok(info) => println!("{:?}", info),
-            Err(e) => eprintln!("Error: {}", e),
+            Ok(_) => Ok(()),
+            Err(e) => Err(DockerError::Run(e.to_string())),
         }
     }
 
@@ -126,7 +140,7 @@ impl DockerClient {
 
         match self.docker.containers().list(&options).await {
             Ok(info) => Ok(info),
-            Err(e) => Err(DockerError::ListError(format!("{:?}", e))),
+            Err(e) => Err(DockerError::List(format!("{:?}", e))),
         }
     }
 }
