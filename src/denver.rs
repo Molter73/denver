@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use regex::Regex;
 
 use crate::cli::{Cli, Commands, Common, Run, Status};
@@ -52,7 +54,7 @@ impl Denver {
         let config = read_config(config);
         let docker = DockerClient::new(&config);
         let containers = docker.list_containers().await?;
-        let re = Regex::new(&args.pattern).unwrap();
+        let re = Regex::new(&args.pattern)?;
 
         println!("CONTAINER ID\tNAME\t\tIMAGE\t\t\t\t\t\tSTATE\t\tSTATUS");
 
@@ -93,6 +95,19 @@ impl Denver {
 pub enum DenverError {
     UnknownContainer(String),
     StatusError(String),
+    InvalidRegex(String),
+}
+
+impl Display for DenverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DenverError::UnknownContainer(e)
+            | DenverError::StatusError(e)
+            | DenverError::InvalidRegex(e) => {
+                write!(f, "{}", e)
+            }
+        }
+    }
 }
 
 impl From<DockerError> for DenverError {
@@ -100,6 +115,12 @@ impl From<DockerError> for DenverError {
         match e {
             DockerError::ListError(e) => DenverError::StatusError(e),
         }
+    }
+}
+
+impl From<regex::Error> for DenverError {
+    fn from(e: regex::Error) -> Self {
+        DenverError::InvalidRegex(e.to_string())
     }
 }
 
@@ -112,8 +133,6 @@ pub async fn run(cli: Cli) {
 
     match result {
         Ok(()) => {}
-        Err(DenverError::UnknownContainer(e)) | Err(DenverError::StatusError(e)) => {
-            eprintln!("Error: {}", e)
-        }
+        Err(e) => println!("Error: {}", e),
     }
 }
