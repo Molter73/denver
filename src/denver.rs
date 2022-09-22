@@ -1,3 +1,5 @@
+use regex::Regex;
+
 use crate::cli::{Cli, Commands, Common, Run, Status};
 use crate::config::{read_config, Config, ContainerConfig};
 use crate::docker::{DockerClient, DockerError};
@@ -46,25 +48,34 @@ impl Denver {
         Ok(())
     }
 
-    async fn status(config: &str, _args: &Status) -> Result<(), DenverError> {
+    async fn status(config: &str, args: &Status) -> Result<(), DenverError> {
         let config = read_config(config);
         let docker = DockerClient::new(&config);
         let containers = docker.list_containers().await?;
+        let re = Regex::new(&args.pattern).unwrap();
 
         println!("CONTAINER ID\tNAME\t\tIMAGE\t\t\t\t\t\tSTATE\t\tSTATUS");
 
         for container in &containers {
-            println!(
-                "{}\t{}\t{}\t{}\t\t{}",
-                &container.id[..12],
-                &container.names[0][1..],
-                container.image,
-                container.state.to_uppercase(),
-                container.status
-            );
+            let name = &container.names[0][1..];
+
+            if re.is_match(name) {
+                println!(
+                    "{}\t{}\t{}\t{}\t\t{}",
+                    &container.id[..12],
+                    name,
+                    container.image,
+                    container.state.to_uppercase(),
+                    container.status
+                );
+            }
         }
 
         for (name, config) in &config.containers {
+            if !re.is_match(name) {
+                continue;
+            }
+
             if !containers
                 .iter()
                 .flat_map(|e| &e.names)
