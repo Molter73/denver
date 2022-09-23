@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Deref;
+use std::time::Duration;
 
 use futures::StreamExt;
 use serde_json::Value;
@@ -16,6 +17,7 @@ pub enum DockerError {
     Build(String),
     Run(String),
     List(String),
+    Stop(String),
 }
 
 pub struct DockerClient {
@@ -126,6 +128,20 @@ impl DockerClient {
         match docker.containers().get(&self.id).start().await {
             Ok(_) => Ok(()),
             Err(e) => Err(DockerError::Run(e.to_string())),
+        }
+    }
+
+    pub async fn stop_container(&self, id: &String) -> Result<(), DockerError> {
+        let docker = &self.docker;
+
+        match docker
+            .containers()
+            .get(id)
+            .stop(Some(Duration::new(5, 0)))
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(e) => Err(DockerError::Stop(e.to_string())),
         }
     }
 

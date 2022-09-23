@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use regex::Regex;
 
-use crate::cli::{Cli, Commands, Common, Run, Status};
+use crate::cli::{Cli, Commands, Common, Run, Status, Stop};
 use crate::config::{read_config, Config, ContainerConfig};
 use crate::docker::{DockerClient, DockerError};
 
@@ -90,12 +90,31 @@ impl Denver {
 
         Ok(())
     }
+
+    async fn stop(config: &str, args: &Stop) -> Result<(), DenverError> {
+        let config = read_config(config);
+        let docker = DockerClient::new(&config);
+        let containers = docker.list_containers().await?;
+        let re = Regex::new(&args.pattern)?;
+
+        for container in &containers {
+            let name = &container.names[0][1..];
+
+            if re.is_match(name) {
+                println!("Stopping {} - {}", &container.id[..12], name);
+                docker.stop_container(&container.id).await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub enum DenverError {
     UnknownContainer(String),
     BuildError(String),
     RunError(String),
+    StopError(String),
     StatusError(String),
     InvalidRegex(String),
 }
@@ -107,6 +126,7 @@ impl Display for DenverError {
             | DenverError::StatusError(e)
             | DenverError::InvalidRegex(e)
             | DenverError::RunError(e)
+            | DenverError::StopError(e)
             | DenverError::BuildError(e) => {
                 write!(f, "{}", e)
             }
@@ -120,6 +140,7 @@ impl From<DockerError> for DenverError {
             DockerError::List(e) => DenverError::StatusError(e),
             DockerError::Build(e) => DenverError::BuildError(e),
             DockerError::Run(e) => DenverError::RunError(e),
+            DockerError::Stop(e) => DenverError::StopError(e),
         }
     }
 }
@@ -135,6 +156,7 @@ pub async fn run(cli: Cli) {
         Commands::Run(args) => Denver::run(&cli.config, &args).await,
         Commands::Build(args) => Denver::build(&cli.config, &args.common).await,
         Commands::Status(args) => Denver::status(&cli.config, &args).await,
+        Commands::Stop(args) => Denver::stop(&cli.config, &args).await,
     };
 
     match result {

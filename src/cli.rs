@@ -26,6 +26,8 @@ pub enum Commands {
     Build(Build),
     #[clap(about = "List containers managed by denver")]
     Status(Status),
+    #[clap(about = "Stop running containers")]
+    Stop(Stop),
 }
 
 #[derive(Args)]
@@ -69,6 +71,16 @@ pub struct Status {
         value_parser,
         default_value = ".*",
         help = "List only containers matching this pattern"
+    )]
+    pub pattern: String,
+}
+
+#[derive(Args)]
+pub struct Stop {
+    #[clap(
+        value_parser,
+        default_value = ".*",
+        help = "Stop only containers matching this pattern"
     )]
     pub pattern: String,
 }
