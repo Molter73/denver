@@ -62,31 +62,34 @@ impl Denver {
 
         println!("CONTAINER ID\tNAME\t\tIMAGE\t\t\t\t\t\tSTATE\t\tSTATUS");
 
-        for container in &containers {
+        // We first print all created containers
+        for container in containers.iter().filter(|c| {
+            let name = &c.names[0][1..];
+            re.is_match(name)
+        }) {
             let name = &container.names[0][1..];
 
-            if re.is_match(name) {
-                println!(
-                    "{}\t{}\t{}\t{}\t\t{}",
-                    &container.id[..12],
-                    name,
-                    container.image,
-                    container.state.to_uppercase(),
-                    container.status
-                );
-            }
+            println!(
+                "{}\t{}\t{}\t{}\t\t{}",
+                &container.id[..12],
+                name,
+                container.image,
+                container.state.to_uppercase(),
+                container.status
+            );
         }
 
-        for (name, config) in &self.config.containers {
-            if !re.is_match(name) {
-                continue;
-            }
-
+        // And now we can print any containers that are not created
+        for (name, config) in self
+            .config
+            .containers
+            .iter()
+            .filter(|(name, _)| re.is_match(name))
+        {
             if !containers
                 .iter()
-                .flat_map(|e| &e.names)
-                .map(|e| &e[1..])
-                .any(|e| e == name.as_str())
+                .map(|c| &c.names[0][1..])
+                .any(|c| c == name)
             {
                 println!("{}\t{}\t{}\tNOT CREATED", "-".repeat(12), name, config.tag);
             }
