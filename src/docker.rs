@@ -90,15 +90,12 @@ impl DockerClient {
                 .collect::<Vec<&str>>(),
         );
 
-        let args = run_options.args.as_ref();
+        let args = run_options.args.as_ref().unwrap_or(&EMPTY_VEC);
         ContainerOptions::builder(&container.tag)
             .name(name)
-            .attach_stdin(
-                args.unwrap_or(&EMPTY_VEC)
-                    .iter()
-                    .any(|e| e == "i" || e == "interactive"),
-            )
-            .auto_remove(args.unwrap_or(&EMPTY_VEC).iter().any(|e| e == "rm"))
+            .attach_stdin(args.iter().any(|e| e == "i" || e == "interactive"))
+            .auto_remove(args.contains(&String::from("rm")))
+            .privileged(args.contains(&String::from("privileged")))
             .volumes(volumes)
             .working_dir(&run_options.workspace)
             .labels(&HashMap::from([DENVER_LABEL]))
