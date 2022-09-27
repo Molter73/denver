@@ -6,9 +6,19 @@ use crate::cli::{Cli, Commands, Common, Run, Status, Stop};
 use crate::config::{read_config, Config, ContainerConfig};
 use crate::docker::{DockerClient, DockerError};
 
-pub struct Denver;
+pub struct Denver {
+    config: Config,
+    docker: DockerClient,
+}
 
 impl Denver {
+    fn new(config: &str) -> Self {
+        let config = read_config(config);
+        let docker = DockerClient::new(&config);
+
+        Denver { config, docker }
+    }
+
     fn get_container_config<'a>(
         config: &'a Config,
         container_name: &String,
@@ -24,36 +34,30 @@ impl Denver {
         }
     }
 
-    async fn run(config: &str, args: &Run) -> Result<(), DenverError> {
-        let config = read_config(config);
-        let mut docker = DockerClient::new(&config);
+    async fn run(&mut self, args: &Run) -> Result<(), DenverError> {
         let name = &args.common.container;
-        let container = Denver::get_container_config(&config, name)?;
+        let container = Denver::get_container_config(&self.config, name)?;
 
         if !args.no_rebuild {
-            docker.build_image(&args.common, container).await?;
+            self.docker.build_image(&args.common, container).await?;
         }
-        docker.create_container(name, container).await?;
-        docker.run_container().await?;
+        self.docker.create_container(name, container).await?;
+        self.docker.run_container().await?;
 
         Ok(())
     }
 
-    async fn build(config: &str, args: &Common) -> Result<(), DenverError> {
-        let config = read_config(config);
-        let docker = DockerClient::new(&config);
+    async fn build(&self, args: &Common) -> Result<(), DenverError> {
         let name = &args.container;
-        let container = Denver::get_container_config(&config, name)?;
+        let container = Denver::get_container_config(&self.config, name)?;
 
-        docker.build_image(args, container).await?;
+        self.docker.build_image(args, container).await?;
 
         Ok(())
     }
 
-    async fn status(config: &str, args: &Status) -> Result<(), DenverError> {
-        let config = read_config(config);
-        let docker = DockerClient::new(&config);
-        let containers = docker.list_containers().await?;
+    async fn status(&self, args: &Status) -> Result<(), DenverError> {
+        let containers = self.docker.list_containers().await?;
         let re = Regex::new(&args.pattern)?;
 
         println!("CONTAINER ID\tNAME\t\tIMAGE\t\t\t\t\t\tSTATE\t\tSTATUS");
@@ -73,7 +77,7 @@ impl Denver {
             }
         }
 
-        for (name, config) in &config.containers {
+        for (name, config) in &self.config.containers {
             if !re.is_match(name) {
                 continue;
             }
@@ -91,10 +95,8 @@ impl Denver {
         Ok(())
     }
 
-    async fn stop(config: &str, args: &Stop) -> Result<(), DenverError> {
-        let config = read_config(config);
-        let docker = DockerClient::new(&config);
-        let containers = docker.list_containers().await?;
+    async fn stop(&self, args: &Stop) -> Result<(), DenverError> {
+        let containers = self.docker.list_containers().await?;
         let re = Regex::new(&args.pattern)?;
 
         for container in &containers {
@@ -102,7 +104,7 @@ impl Denver {
 
             if re.is_match(name) {
                 println!("Stopping {} - {}", &container.id[..12], name);
-                docker.stop_container(&container.id).await?;
+                self.docker.stop_container(&container.id).await?;
             }
         }
 
@@ -152,11 +154,13 @@ impl From<regex::Error> for DenverError {
 }
 
 pub async fn run(cli: Cli) {
+    let mut denver = Denver::new(&cli.config);
+
     let result = match cli.command {
-        Commands::Run(args) => Denver::run(&cli.config, &args).await,
-        Commands::Build(args) => Denver::build(&cli.config, &args.common).await,
-        Commands::Status(args) => Denver::status(&cli.config, &args).await,
-        Commands::Stop(args) => Denver::stop(&cli.config, &args).await,
+        Commands::Run(args) => denver.run(&args).await,
+        Commands::Build(args) => denver.build(&args.common).await,
+        Commands::Status(args) => denver.status(&args).await,
+        Commands::Stop(args) => denver.stop(&args).await,
     };
 
     match result {
