@@ -4,6 +4,7 @@ use regex::Regex;
 
 use crate::cli::{Cli, Commands, Common, Run, Status, Stop};
 use crate::config::{read_config, Config, ContainerConfig};
+use crate::displaystatus::{RunningStatus, StatusInfo};
 use crate::docker::{DockerClient, DockerError};
 
 pub struct Denver {
@@ -68,10 +69,17 @@ impl Denver {
     }
 
     async fn status(&self, args: &Status) -> Result<(), DenverError> {
+        static EMPTY_ID: &str = "------------";
         let containers = self.docker.list_containers().await?;
         let re = Regex::new(&args.pattern)?;
-
-        println!("CONTAINER ID\tNAME\t\tIMAGE\t\t\t\t\t\tSTATE\t\tSTATUS");
+        let mut lines = RunningStatus::new();
+        lines.data.push(StatusInfo::new(
+            "CONTAINER ID",
+            "NAME",
+            "IMAGE",
+            "STATE",
+            "STATUS",
+        ));
 
         // We first print all created containers
         for container in containers.iter().filter(|c| {
@@ -80,14 +88,13 @@ impl Denver {
         }) {
             let name = &container.names[0][1..];
 
-            println!(
-                "{}\t{}\t{}\t{}\t\t{}",
+            lines.data.push(StatusInfo::new(
                 &container.id[..12],
                 name,
-                container.image,
-                container.state.to_uppercase(),
-                container.status
-            );
+                &container.image,
+                &container.state,
+                &container.status,
+            ));
         }
 
         // And now we can print any containers that are not created
@@ -102,9 +109,17 @@ impl Denver {
                 .map(|c| &c.names[0][1..])
                 .any(|c| c == name)
             {
-                println!("{}\t{}\t{}\tNOT CREATED", "-".repeat(12), name, config.tag);
+                lines.data.push(StatusInfo::new(
+                    EMPTY_ID,
+                    name,
+                    &config.tag,
+                    "NOT CREATED",
+                    "",
+                ));
             }
         }
+
+        println!("{}", lines);
 
         Ok(())
     }

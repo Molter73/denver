@@ -3,6 +3,7 @@ mod cli;
 use cli::Cli;
 mod config;
 mod denver;
+mod displaystatus;
 mod docker;
 
 #[tokio::main]
