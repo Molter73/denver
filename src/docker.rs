@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use serde_json::Value;
+use shiplift::RmContainerOptions;
 use shiplift::{
     rep::Container, BuildOptions, ContainerFilter, ContainerListOptions, ContainerOptions, Docker,
 };
@@ -18,6 +19,7 @@ pub enum DockerError {
     Run(String),
     List(String),
     Stop(String),
+    Remove(String),
 }
 
 pub struct DockerClient {
@@ -139,6 +141,17 @@ impl DockerClient {
         {
             Ok(_) => Ok(()),
             Err(e) => Err(DockerError::Stop(e.to_string())),
+        }
+    }
+
+    pub async fn remove_container(&self, id: &String, force: bool) -> Result<(), DockerError> {
+        let docker = &self.docker;
+
+        let options = RmContainerOptions::builder().force(force).build();
+
+        match docker.containers().get(id).remove(options).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(DockerError::Remove(e.to_string())),
         }
     }
 

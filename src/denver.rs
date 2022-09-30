@@ -41,6 +41,17 @@ impl Denver {
         if !args.no_rebuild {
             self.docker.build_image(&args.common, container).await?;
         }
+
+        let running = self.docker.list_containers().await?;
+        let running_container = running.iter().find(|c| &c.names[0][1..] == name.as_str());
+
+        if let Some(running_container) = running_container {
+            println!("Removing {}", &running_container.names[0][1..]);
+            self.docker
+                .remove_container(&running_container.id, true)
+                .await?;
+        }
+
         self.docker.create_container(name, container).await?;
         self.docker.run_container().await?;
 
@@ -120,6 +131,7 @@ pub enum DenverError {
     BuildError(String),
     RunError(String),
     StopError(String),
+    RemoveError(String),
     StatusError(String),
     InvalidRegex(String),
 }
@@ -132,6 +144,7 @@ impl Display for DenverError {
             | DenverError::InvalidRegex(e)
             | DenverError::RunError(e)
             | DenverError::StopError(e)
+            | DenverError::RemoveError(e)
             | DenverError::BuildError(e) => {
                 write!(f, "{}", e)
             }
@@ -146,6 +159,7 @@ impl From<DockerError> for DenverError {
             DockerError::Build(e) => DenverError::BuildError(e),
             DockerError::Run(e) => DenverError::RunError(e),
             DockerError::Stop(e) => DenverError::StopError(e),
+            DockerError::Remove(e) => DenverError::RemoveError(e),
         }
     }
 }
