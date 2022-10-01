@@ -54,8 +54,8 @@ impl Denver {
                 .await?;
         }
 
-        self.docker.create_container(name, container).await?;
-        self.docker.run_container().await?;
+        let id = self.docker.create_container(name, container).await?;
+        self.docker.run_container(id).await?;
 
         Ok(())
     }

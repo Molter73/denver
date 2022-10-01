@@ -24,17 +24,13 @@ pub enum DockerError {
 
 pub struct DockerClient {
     docker: Docker,
-    id: String,
 }
 
 impl DockerClient {
     pub fn new(config: &Config) -> Self {
         let docker = Docker::unix(&config.socket);
 
-        DockerClient {
-            docker,
-            id: String::from(""),
-        }
+        DockerClient { docker }
     }
 
     pub async fn build_image(
@@ -108,23 +104,20 @@ impl DockerClient {
         &mut self,
         name: &str,
         container: &ContainerConfig,
-    ) -> Result<&str, DockerError> {
+    ) -> Result<String, DockerError> {
         let docker = &self.docker;
         let options = Self::create_run_options(name, container);
 
         match docker.containers().create(&options).await {
-            Ok(info) => {
-                self.id = info.id;
-                Ok(&self.id)
-            }
+            Ok(info) => Ok(info.id),
             Err(e) => Err(DockerError::Run(e.to_string())),
         }
     }
 
-    pub async fn run_container(&self) -> Result<(), DockerError> {
+    pub async fn run_container(&self, id: String) -> Result<(), DockerError> {
         let docker = &self.docker;
 
-        match docker.containers().get(&self.id).start().await {
+        match docker.containers().get(&id).start().await {
             Ok(_) => Ok(()),
             Err(e) => Err(DockerError::Run(e.to_string())),
         }
