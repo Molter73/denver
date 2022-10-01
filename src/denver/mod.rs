@@ -2,9 +2,10 @@ use std::fmt::Display;
 
 use regex::Regex;
 
+mod status;
+
 use crate::cli::{Cli, Commands, Common, Run, Status, Stop};
 use crate::config::{read_config, Config, ContainerConfig};
-use crate::displaystatus::{RunningStatus, StatusInfo};
 use crate::docker::{DockerClient, DockerError};
 
 pub struct Denver {
@@ -72,14 +73,7 @@ impl Denver {
         static EMPTY_ID: &str = "------------";
         let containers = self.docker.list_containers().await?;
         let re = Regex::new(&args.pattern)?;
-        let mut lines = RunningStatus::new();
-        lines.data.push(StatusInfo::new(
-            "CONTAINER ID",
-            "NAME",
-            "IMAGE",
-            "STATE",
-            "STATUS",
-        ));
+        let mut lines = status::Containers::new();
 
         // We first print all created containers
         for container in containers.iter().filter(|c| {
@@ -88,7 +82,7 @@ impl Denver {
         }) {
             let name = &container.names[0][1..];
 
-            lines.data.push(StatusInfo::new(
+            lines.push(status::Container::new(
                 &container.id[..12],
                 name,
                 &container.image,
@@ -109,7 +103,7 @@ impl Denver {
                 .map(|c| &c.names[0][1..])
                 .any(|c| c == name)
             {
-                lines.data.push(StatusInfo::new(
+                lines.push(status::Container::new(
                     EMPTY_ID,
                     name,
                     &config.tag,
@@ -119,7 +113,7 @@ impl Denver {
             }
         }
 
-        println!("{}", lines);
+        print!("{}", lines);
 
         Ok(())
     }

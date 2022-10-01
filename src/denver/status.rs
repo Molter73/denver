@@ -3,13 +3,21 @@ use std::fmt::Display;
 
 const PADDING: usize = 2;
 
-pub struct RunningStatus<'a> {
-    pub data: Vec<StatusInfo<'a>>,
+pub struct Containers<'a> {
+    pub data: Vec<Container<'a>>,
 }
 
-impl<'a> RunningStatus<'a> {
+impl<'a> Containers<'a> {
     pub fn new() -> Self {
-        RunningStatus { data: Vec::new() }
+        Containers {
+            data: vec![Container::new(
+                "CONTAINER ID",
+                "NAME",
+                "IMAGE",
+                "STATE",
+                "STATUS",
+            )],
+        }
     }
 
     fn find_lengths(&self) -> (usize, usize, usize, usize) {
@@ -31,29 +39,33 @@ impl<'a> RunningStatus<'a> {
             status + PADDING,
         )
     }
+
+    pub fn push(&mut self, c: Container<'a>) {
+        self.data.push(c);
+    }
 }
 
-impl<'a> Display for RunningStatus<'a> {
+impl<'a> Display for Containers<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, image, state, status) = self.find_lengths();
         let id = 12 + PADDING;
-        let mut output = String::new();
 
         for line in &self.data {
-            output += &format!(
-                "{:id$}{:name$}{:image$}{:state$}{:status$}\n",
+            writeln!(
+                f,
+                "{:id$}{:name$}{:image$}{:state$}{:status$}",
                 line.id,
                 line.name,
                 line.image,
                 line.state.to_uppercase(),
                 line.status
-            );
+            )?;
         }
-        write!(f, "{}", output)
+        Ok(())
     }
 }
 
-pub struct StatusInfo<'a> {
+pub struct Container<'a> {
     id: &'a str,
     name: &'a str,
     image: &'a str,
@@ -61,7 +73,7 @@ pub struct StatusInfo<'a> {
     status: &'a str,
 }
 
-impl<'a> StatusInfo<'a> {
+impl<'a> Container<'a> {
     pub fn new(
         id: &'a str,
         name: &'a str,
@@ -69,7 +81,7 @@ impl<'a> StatusInfo<'a> {
         state: &'a str,
         status: &'a str,
     ) -> Self {
-        StatusInfo {
+        Container {
             id,
             name,
             image,
