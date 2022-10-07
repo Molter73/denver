@@ -27,6 +27,8 @@ pub enum Commands {
     Status(Status),
     #[command(about = "Stop running containers")]
     Stop(Stop),
+    #[command(about = "Generate auto-completions")]
+    Completion(Completion),
 }
 
 #[derive(Args)]
@@ -76,6 +78,12 @@ pub struct Stop {
         help = "Stop only containers matching this pattern"
     )]
     pub pattern: String,
+}
+
+#[derive(Args)]
+pub struct Completion {
+    #[arg(help = "Generate auto-completions for this shell")]
+    pub shell: String,
 }
 
 #[cfg(test)]

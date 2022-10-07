@@ -1,12 +1,14 @@
+use regex::Regex;
 use std::fmt::Display;
 
-use regex::Regex;
-
+mod completion;
 mod status;
 
-use crate::cli::{Cli, Commands, Common, Run, Status, Stop};
+use crate::cli::{Cli, Commands, Common, Completion, Run, Status, Stop};
 use crate::config::{read_config, Config, ContainerConfig};
 use crate::docker::{DockerClient, DockerError};
+
+use self::completion::CompletionError;
 
 pub struct Denver {
     config: Config,
@@ -133,6 +135,11 @@ impl Denver {
 
         Ok(())
     }
+
+    fn completion(args: &Completion) -> Result<(), DenverError> {
+        completion::completion(args)?;
+        Ok(())
+    }
 }
 
 pub enum DenverError {
@@ -143,12 +150,14 @@ pub enum DenverError {
     RemoveError(String),
     StatusError(String),
     InvalidRegex(String),
+    CompletionError(String),
 }
 
 impl Display for DenverError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DenverError::UnknownContainer(e)
+            | DenverError::CompletionError(e)
             | DenverError::StatusError(e)
             | DenverError::InvalidRegex(e)
             | DenverError::RunError(e)
@@ -179,6 +188,16 @@ impl From<regex::Error> for DenverError {
     }
 }
 
+impl From<CompletionError> for DenverError {
+    fn from(e: CompletionError) -> Self {
+        match e {
+            CompletionError::UnkownShell(e) => {
+                DenverError::CompletionError(format!("No completion available for {}", e))
+            }
+        }
+    }
+}
+
 pub async fn run(cli: Cli) {
     let mut denver = Denver::new(&cli.config);
 
@@ -187,6 +206,7 @@ pub async fn run(cli: Cli) {
         Commands::Build(args) => denver.build(&args.common).await,
         Commands::Status(args) => denver.status(&args).await,
         Commands::Stop(args) => denver.stop(&args).await,
+        Commands::Completion(args) => Denver::completion(&args),
     };
 
     match result {
