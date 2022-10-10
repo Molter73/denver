@@ -29,6 +29,8 @@ pub enum Commands {
     Stop(Stop),
     #[command(about = "Generate auto-completions")]
     Completion(Completion),
+    #[command(about = "Rebuild containers when changing its context")]
+    Watch(Run),
 }
 
 #[derive(Args)]

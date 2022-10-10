@@ -114,10 +114,10 @@ impl DockerClient {
         }
     }
 
-    pub async fn run_container(&self, id: String) -> Result<(), DockerError> {
+    pub async fn run_container(&self, id: &String) -> Result<(), DockerError> {
         let docker = &self.docker;
 
-        match docker.containers().get(&id).start().await {
+        match docker.containers().get(id).start().await {
             Ok(_) => Ok(()),
             Err(e) => Err(DockerError::Run(e.to_string())),
         }

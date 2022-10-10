@@ -1,5 +1,8 @@
-use regex::Regex;
 use std::fmt::Display;
+use std::path::Path;
+
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use regex::Regex;
 
 mod completion;
 mod status;
@@ -56,8 +59,11 @@ impl Denver {
                 .await?;
         }
 
+        println!("Creating {} with image {}", name, container.tag);
         let id = self.docker.create_container(name, container).await?;
-        self.docker.run_container(id).await?;
+        self.docker.run_container(&id).await?;
+
+        println!("Started {} - {}", &id[..12], name);
 
         Ok(())
     }
@@ -140,6 +146,32 @@ impl Denver {
         completion::completion(args)?;
         Ok(())
     }
+
+    async fn watch(&mut self, args: &Run) -> Result<(), DenverError> {
+        let name = &args.common.container;
+        let container = Denver::get_container_config(&self.config, name)?;
+        let context = &container.build.context;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+        let rt = tokio::runtime::Handle::current();
+
+        let mut watcher = RecommendedWatcher::new(
+            move |res| rt.block_on(async { tx.send(res).await.unwrap() }),
+            notify::Config::default(),
+        )?;
+
+        watcher.watch(Path::new(context), RecursiveMode::Recursive)?;
+
+        println!("Watching {} context for {}", context, name);
+
+        while let Some(res) = rx.recv().await {
+            match res {
+                Ok(_) => self.run(args).await?,
+                Err(e) => return Err(DenverError::RunError(e.to_string())),
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub enum DenverError {
@@ -198,6 +230,12 @@ impl From<CompletionError> for DenverError {
     }
 }
 
+impl From<notify::Error> for DenverError {
+    fn from(e: notify::Error) -> Self {
+        DenverError::RunError(e.to_string())
+    }
+}
+
 pub async fn run(cli: Cli) {
     let mut denver = Denver::new(&cli.config);
 
@@ -207,6 +245,7 @@ pub async fn run(cli: Cli) {
         Commands::Status(args) => denver.status(&args).await,
         Commands::Stop(args) => denver.stop(&args).await,
         Commands::Completion(args) => Denver::completion(&args),
+        Commands::Watch(args) => denver.watch(&args).await,
     };
 
     match result {

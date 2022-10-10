@@ -13,3 +13,4 @@ clap = { version = "4.0.10", features = ["derive"] }
 clap_complete = "4.0.2"
 futures = "0.3.24"
 regex = "1"
+notify = { version = "5.0.0", default-features = false, features = ["fsevent-sys", "macos_kqueue"] }
