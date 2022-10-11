@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::path::Path;
+use std::time::{Duration, SystemTime};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
@@ -41,7 +42,7 @@ impl Denver {
         }
     }
 
-    async fn run(&mut self, args: &Run) -> Result<(), DenverError> {
+    async fn run(&self, args: &Run) -> Result<(), DenverError> {
         let name = &args.common.container;
         let container = Denver::get_container_config(&self.config, name)?;
 
@@ -161,11 +162,24 @@ impl Denver {
 
         watcher.watch(Path::new(context), RecursiveMode::Recursive)?;
 
+        // Run the container and wait for changes to its context
+        self.run(args).await?;
+        let mut last_build = SystemTime::now();
+
         println!("Watching {} context for {}", context, name);
 
         while let Some(res) = rx.recv().await {
             match res {
-                Ok(_) => self.run(args).await?,
+                Ok(_) => {
+                    let duration = SystemTime::now()
+                        .duration_since(last_build)
+                        .expect("Time went backwards?");
+
+                    if duration >= Duration::from_secs(2) {
+                        self.run(args).await?;
+                        last_build = SystemTime::now();
+                    }
+                }
                 Err(e) => return Err(DenverError::RunError(e.to_string())),
             }
         }

@@ -101,7 +101,7 @@ impl DockerClient {
     }
 
     pub async fn create_container(
-        &mut self,
+        &self,
         name: &str,
         container: &ContainerConfig,
     ) -> Result<String, DockerError> {
