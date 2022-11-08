@@ -98,15 +98,22 @@ impl DockerClient {
         );
 
         let args = run_options.args.as_ref().unwrap_or(&EMPTY_VEC);
-        ContainerOptions::builder(&container.tag)
+        let mut options = ContainerOptions::builder(&container.tag);
+
+        options
             .name(name)
             .attach_stdin(args.iter().any(|e| e == "i" || e == "interactive"))
             .auto_remove(args.contains(&String::from("rm")))
             .privileged(args.contains(&String::from("privileged")))
             .volumes(volumes)
             .working_dir(&run_options.workspace)
-            .labels(&HashMap::from([DENVER_LABEL]))
-            .build()
+            .labels(&HashMap::from([DENVER_LABEL]));
+
+        if let Some(entrypoint) = &run_options.entrypoint {
+            options.entrypoint(entrypoint);
+        }
+
+        options.build()
     }
 
     pub async fn create_container(

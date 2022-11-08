@@ -17,6 +17,7 @@ pub struct RunConfig {
     pub args: Option<Vec<String>>,
     pub workspace: String,
     pub volumes: Option<Vec<String>>,
+    pub entrypoint: Option<String>,
 }
 
 #[derive(Deserialize, Eq, PartialEq, Debug)]
@@ -72,6 +73,7 @@ mod tests {
         let volumes = r#"
         - /some/other/path:/path
         - /dev:/dev:ro"#;
+        let entrypoint = "entrypoint";
         let tag = "quay.io/org/some:tag";
         let config = format!(
             r#"
@@ -86,9 +88,19 @@ containers:
         args: {}
         workspace: {}
         volumes: {}
+        entrypoint: {}
     tag: {}
         "#,
-            socket, name, dockerfile, context, build_args, args, workspace, volumes, tag
+            socket,
+            name,
+            dockerfile,
+            context,
+            build_args,
+            args,
+            workspace,
+            volumes,
+            entrypoint,
+            tag
         );
 
         let config = Config::new(&config);
@@ -119,5 +131,7 @@ containers:
         for volume in run_volumes {
             assert!(volumes.contains(volume));
         }
+
+        assert_eq!(entrypoint, run_config.entrypoint.as_ref().unwrap());
     }
 }
