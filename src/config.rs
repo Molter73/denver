@@ -8,6 +8,7 @@ use serde::Deserialize;
 pub struct BuildConfig {
     pub dockerfile: Option<String>,
     pub context: String,
+    pub build_args: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize, Eq, PartialEq, Debug)]
@@ -60,6 +61,10 @@ mod tests {
         let name = "test-container";
         let dockerfile = "Dockerfile";
         let context = "ctx/";
+        let build_args = r#"
+            test_arg: value
+            test_arg2: value2
+            "#;
         let args = r#"
         - i
         - rm"#;
@@ -76,13 +81,14 @@ containers:
     build:
         dockerfile: {}
         context: {}
+        build_args: {}
     run:
         args: {}
         workspace: {}
         volumes: {}
     tag: {}
         "#,
-            socket, name, dockerfile, context, args, workspace, volumes, tag
+            socket, name, dockerfile, context, build_args, args, workspace, volumes, tag
         );
 
         let config = Config::new(&config);
@@ -96,6 +102,10 @@ containers:
         let build_config = &container.build;
         assert_eq!(dockerfile, build_config.dockerfile.as_ref().unwrap());
         assert_eq!(context, build_config.context);
+        for (k, v) in build_config.build_args.as_ref().unwrap() {
+            assert!(build_args.contains(k));
+            assert!(build_args.contains(v));
+        }
 
         let run_config = &container.run;
         let run_args = run_config.args.as_ref().unwrap();

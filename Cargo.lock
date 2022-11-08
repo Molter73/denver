@@ -943,8 +943,7 @@ dependencies = [
 [[package]]
 name = "shiplift"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e468265908f45299c26571dad9a2e5cb3656eceb51cd58f1441cf61aa71aad6"
+source = "git+https://github.com/molter73/shiplift?branch=mauro/add-buildargs-support#034576eb8a2ef1c6e06e4a9420b6aec96f043279"
 dependencies = [
  "base64",
  "byteorder",

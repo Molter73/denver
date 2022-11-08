@@ -41,7 +41,9 @@ impl DockerClient {
         let docker = &self.docker;
         let build_options = &container.build;
 
-        let options = BuildOptions::builder(&build_options.context)
+        let mut options = BuildOptions::builder(&build_options.context);
+
+        options
             .dockerfile(
                 build_options
                     .dockerfile
@@ -49,8 +51,15 @@ impl DockerClient {
                     .unwrap_or(&"Dockerfile".to_string()),
             )
             .tag(&container.tag)
-            .nocache(args.no_cache)
-            .build();
+            .nocache(args.no_cache);
+
+        if let Some(buildargs) = &build_options.build_args {
+            for (k, v) in buildargs {
+                options.buildargs(k, v);
+            }
+        }
+
+        let options = options.build();
 
         let mut stream = docker.images().build(&options);
         while let Some(build_result) = stream.next().await {
